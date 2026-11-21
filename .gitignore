@@ -1,0 +1,11 @@
+.venv/
+.aws-sam/
+.aws/
+__pycache__/
+.env*
+!.env.example
+samconfig.toml
+samconfig.yaml
+samconfig.yml
+preview*.png
+live-dashboard-*.png

@@ -1,0 +1,129 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Single-device TickTick dashboard for TRMNL OG BYOS
+
+Parameters:
+  HomeCidr:
+    Type: String
+    AllowedPattern: '[0-9]{1,3}(\.[0-9]{1,3}){3}/32'
+  InboxId:
+    Type: String
+    AllowedPattern: '[A-Za-z0-9_-]+'
+  WorkListId:
+    Type: String
+    AllowedPattern: '[A-Za-z0-9_-]+'
+  CredentialParameter:
+    Type: String
+    AllowedPattern: '/[A-Za-z0-9_./-]+'
+  TimeBlockingListId:
+    Type: String
+    AllowedPattern: '[A-Za-z0-9_-]+'
+  DashboardTimezone:
+    Type: String
+  RefreshSeconds:
+    Type: Number
+    Default: 900
+    MinValue: 60
+    MaxValue: 86400
+
+Resources:
+  ByosApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: byos
+      AlwaysDeploy: true
+      EndpointConfiguration: REGIONAL
+      BinaryMediaTypes:
+        - '*/*'
+      Auth:
+        ResourcePolicy:
+          CustomStatements:
+            - Effect: Allow
+              Principal: '*'
+              Action: execute-api:Invoke
+              Resource: 'execute-api:/*'
+              Condition:
+                IpAddress:
+                  aws:SourceIp: !Ref HomeCidr
+            - Effect: Deny
+              Principal: '*'
+              Action: execute-api:Invoke
+              Resource: 'execute-api:/*'
+              Condition:
+                NotIpAddress:
+                  aws:SourceIp: !Ref HomeCidr
+      MethodSettings:
+        - HttpMethod: '*'
+          ResourcePath: '/*'
+          ThrottlingRateLimit: 5
+          ThrottlingBurstLimit: 10
+
+  Snapshots:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireSnapshots
+            Status: Enabled
+            ExpirationInDays: 3
+
+  DashboardFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: python3.12
+      Architectures: [arm64]
+      CodeUri: app/
+      Handler: byos.lambda_handler
+      Timeout: 20
+      MemorySize: 256
+      Environment:
+        Variables:
+          SNAPSHOT_BUCKET: !Ref Snapshots
+          CREDENTIAL_PARAMETER: !Ref CredentialParameter
+          INBOX_ID: !Ref InboxId
+          WORK_LIST_ID: !Ref WorkListId
+          TIME_BLOCKING_LIST_ID: !Ref TimeBlockingListId
+          DASHBOARD_TIMEZONE: !Ref DashboardTimezone
+          REFRESH_SECONDS: !Ref RefreshSeconds
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action: [s3:GetObject, s3:PutObject]
+              Resource: !Sub '${Snapshots.Arn}/screens/*'
+            - Effect: Allow
+              Action: ssm:GetParameter
+              Resource: !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${CredentialParameter}'
+      Events:
+        Setup:
+          Type: Api
+          Properties: {RestApiId: !Ref ByosApi, Path: /api/setup, Method: GET}
+        Display:
+          Type: Api
+          Properties: {RestApiId: !Ref ByosApi, Path: /api/display, Method: GET}
+        DeviceLog:
+          Type: Api
+          Properties: {RestApiId: !Ref ByosApi, Path: /api/log, Method: POST}
+        Image:
+          Type: Api
+          Properties: {RestApiId: !Ref ByosApi, Path: '/images/{image}', Method: GET}
+
+  DashboardLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${DashboardFunction}'
+      RetentionInDays: 14
+
+Outputs:
+  ByosUrl:
+    Value: !Sub 'https://${ByosApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/byos'
