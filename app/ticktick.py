@@ -97,12 +97,17 @@ class TickTick:
             stamp = int(today.strftime("%Y%m%d"))
             active = [habit for habit in habits if habit.get("status", 0) == 0
                       and habit.get("repeatRule")]
+            section_ids = {habit.get("sectionId") for habit in active} - {None, ""}
+            section_ranks = self.habit_section_ranks(section_ids) if section_ids else {}
             scheduled = [
                 {
                     "id": habit["id"], "title": habit["name"], "active": True,
                     "rule": habit["repeatRule"], "start": habit_start(habit, now),
                 }
-                for habit in sorted(active, key=lambda habit: habit.get("sortOrder", 0))
+                for habit in sorted(active, key=lambda habit: (
+                    section_ranks.get(habit.get("sectionId"), len(section_ranks)),
+                    habit.get("sortOrder", 0),
+                ))
                 if stamp not in {int(value) for value in habit.get("exDates", [])}
             ]
         with response_schema("habit_checkins"):
@@ -118,6 +123,22 @@ class TickTick:
         if not isinstance(data["tasks"], list):
             raise TypeError("Expected a task array")
         return data["tasks"]
+
+    def habit_section_ranks(self, section_ids):
+        with response_schema("habit_sections"):
+            sections = self.read("/habit/sections")
+            if not isinstance(sections, list):
+                raise TickTickError("unexpected_schema/habit_sections/expected_array")
+            for section in sections:
+                if not isinstance(section["id"], str) or not section["id"]:
+                    raise ValueError
+                if type(section["sortOrder"]) is not int:
+                    raise TypeError
+            ordered_sections = sorted(sections, key=lambda section: section["sortOrder"])
+            ranks = {section["id"]: rank for rank, section in enumerate(ordered_sections)}
+            if len(ranks) != len(sections) or not section_ids.issubset(ranks):
+                raise TickTickError("habit_sections_membership")
+            return ranks
 
     def completed(self, habits, stamp):
         if not habits:

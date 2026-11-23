@@ -41,6 +41,24 @@ class TickTickTests(unittest.TestCase):
         read.assert_any_call("/task/filter", {"projectIds": ["inbox"], "status": [0]})
         read.assert_any_call("/habit/checkins?habitIds=a%2Cb%2Cc&from=20261118&to=20261118")
 
+    def test_habits_follow_section_order_before_individual_order(self):
+        scheduled = dict(targetStartDate=20261101, repeatRule="RRULE:FREQ=DAILY")
+        habits = [
+            dict(scheduled, id="a", name="Later section", sectionId="a", sortOrder=-10),
+            dict(scheduled, id="b", name="First section, second habit", sectionId="z", sortOrder=10),
+            dict(scheduled, id="c", name="Ungrouped", sortOrder=-20),
+            dict(scheduled, id="d", name="First section, first habit", sectionId="z", sortOrder=-10),
+        ]
+        sections = [{"id": "a", "sortOrder": 40}, {"id": "z", "sortOrder": -50}]
+        work = {"project": {"id": "work"}, "tasks": []}
+        blocks = {"project": {"id": "blocks"}, "tasks": []}
+        with patch.object(self.client, "read",
+                          side_effect=[[], work, blocks, habits, sections, []]) as read:
+            _, _, titles, _, _ = self.client.dashboard("inbox", "work", "blocks", self.now)
+        self.assertEqual(titles, ["First section, first habit", "First section, second habit",
+                                  "Later section"])
+        read.assert_any_call("/habit/sections")
+
     def test_refuses_potentially_truncated_inbox(self):
         with patch.object(self.client, "read", return_value=[{}] * 200):
             with self.assertRaisesRegex(TickTickError, "inbox_result_limit"):
@@ -56,6 +74,9 @@ class TickTickTests(unittest.TestCase):
             ([[], {"project": {"id": "work"}}], "work/missing_field/tasks"),
             ([[], work, blocks, [habit | {"repeatRule": "PRIVATE_VALUE"}], []],
              "habits/invalid_value"),
+            ([[], work, blocks, [habit | {"sectionId": "private-section"}],
+              [{"id": "private-section", "sortOrder": "PRIVATE_VALUE"}]],
+             "habit_sections/invalid_type"),
             ([[], work, blocks, [habit], [{"habitId": "fixture-id", "checkins": None}]],
              "habit_checkins/invalid_type"),
         ]
@@ -65,6 +86,11 @@ class TickTickTests(unittest.TestCase):
             ):
                 with self.assertRaisesRegex(TickTickError, f"^unexpected_schema/{diagnostic}$"):
                     self.client.dashboard("inbox", "work", "blocks", self.now)
+
+    def test_unknown_habit_section_is_an_incomplete_read(self):
+        with patch.object(self.client, "read", return_value=[{"id": "other", "sortOrder": 0}]):
+            with self.assertRaisesRegex(TickTickError, "^habit_sections_membership$"):
+                self.client.habit_section_ranks({"missing"})
 
     def test_http_and_timeout_errors_are_sanitized(self):
         failures = [
