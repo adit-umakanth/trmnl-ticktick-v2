@@ -91,12 +91,15 @@ def clock_label(value, reference):
     return prefix + value.strftime("%I:%M%p").lstrip("0").lower()
 
 
-def habit_titles(habits, completed, today):
+HABIT_LIMIT = 3
+
+
+def habit_titles(habits, hidden, today):
     midnight = datetime.combine(today, time.min)
     end = midnight + timedelta(days=1)
     titles = []
     for habit in habits:
-        if habit["id"] in completed or not habit["active"]:
+        if habit["id"] in hidden or not habit["active"]:
             continue
         rule = habit["rule"]
         if not rule:
@@ -105,7 +108,7 @@ def habit_titles(habits, completed, today):
         occurrence = rrulestr(rule, dtstart=start).after(midnight, inc=True)
         if occurrence is not None and midnight <= occurrence < end:
             titles.append(habit["title"])
-    return titles[:3]
+    return titles[:HABIT_LIMIT]
 
 
 BLACK, DARK, LIGHT, WHITE = 0, 85, 170, 255
@@ -235,9 +238,8 @@ def habits_strip(draw, habits):
     draw.line((28, 458, 39, 448), fill=DARK)
     draw.line((33, 453, 39, 448), fill=WHITE)
     draw_text(draw, (54, 450), "Daily Habits", 16, 650, anchor="lm")
-    labels = habits or ("No habits due",)
-    width = 606 // len(labels)
-    for index, label in enumerate(labels):
+    width = 606 // HABIT_LIMIT
+    for index, label in enumerate(habits[:HABIT_LIMIT]):
         left = 166 + width * index
         draw.line((left, 440, left, 460), fill=LIGHT)
         draw_text(draw, (left + width // 2, 450), fit(draw, label, width - 16, 14),

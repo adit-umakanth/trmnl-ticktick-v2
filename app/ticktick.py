@@ -2,7 +2,7 @@
 
 import json
 from contextlib import contextmanager
-from datetime import date
+from datetime import date, timedelta
 from http.client import HTTPException
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
@@ -15,6 +15,7 @@ from dashboard import habit_titles, task_rows, time_blocks
 
 BASE_URL = "https://api.ticktick.com/open/v1"
 MAX_RESPONSE = 2_000_000
+SKIPPED_CHECKIN_STATUS = 1
 SCHEMA_FIELDS = frozenset({
     "projectId", "project", "id", "tasks", "status", "sortOrder", "title", "name",
     "repeatRule", "createdTime", "habitId", "checkins", "stamp", "value",
@@ -111,9 +112,9 @@ class TickTick:
                 if stamp not in {int(value) for value in habit.get("exDates", [])}
             ]
         with response_schema("habit_checkins"):
-            completed = self.completed(active, stamp)
+            hidden = self.hidden_habit_ids(active, today)
         with response_schema("habits"):
-            titles = habit_titles(scheduled, completed, today)
+            titles = habit_titles(scheduled, hidden, today)
         return inbox_rows, work_rows, titles, current, upcoming
 
     def project_tasks(self, project_id, mismatch):
@@ -140,24 +141,30 @@ class TickTick:
                 raise TickTickError("habit_sections_membership")
             return ranks
 
-    def completed(self, habits, stamp):
+    def hidden_habit_ids(self, habits, today):
         if not habits:
             return set()
         by_id = {habit["id"]: habit for habit in habits}
-        query = urlencode({"habitIds": ",".join(by_id), "from": stamp, "to": stamp})
+        stamp = int(today.strftime("%Y%m%d"))
+        # TickTick includes the start date and excludes the end date.
+        tomorrow = today + timedelta(days=1)
+        query = urlencode({"habitIds": ",".join(by_id), "from": stamp,
+                           "to": tomorrow.strftime("%Y%m%d")})
         rows = self.read("/habit/checkins?" + query)
         if not isinstance(rows, list):
             raise TickTickError("unexpected_schema/habit_checkins/expected_array")
-        completed = set()
+        hidden = set()
         for row in rows:
             habit = by_id.get(row["habitId"])
             if habit is None:
                 raise TickTickError("habit_checkins_membership")
             for item in row["checkins"]:
+                if item["stamp"] != stamp:
+                    continue
                 goal = item.get("goal") or habit.get("goal") or 1
-                if item["stamp"] == stamp and item["value"] >= goal:
-                    completed.add(habit["id"])
-        return completed
+                if item.get("status") == SKIPPED_CHECKIN_STATUS or item["value"] >= goal:
+                    hidden.add(habit["id"])
+        return hidden
 
 
 def habit_start(habit, now):

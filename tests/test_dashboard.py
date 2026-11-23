@@ -35,6 +35,24 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(habit_titles(habits, {"done"}, date(2026, 11, 18)),
                          ["first", "second", "third"])
 
+    def test_habit_slots_keep_their_positions_and_leave_unused_space_blank(self):
+        titles = ["Read", "Stretch", "Walk"]
+        with Image.open(BytesIO(render(habits=titles))) as full:
+            heading = full.crop((20, 439, 166, 462)).tobytes()
+            for count in range(len(titles) + 1):
+                with self.subTest(count=count), Image.open(
+                    BytesIO(render(habits=titles[:count]))
+                ) as image:
+                    self.assertEqual(image.crop((20, 439, 166, 462)).tobytes(), heading)
+                    for index, left in enumerate((166, 368, 570)):
+                        bounds = (left, 439, left + 202, 462)
+                        slot = image.crop(bounds)
+                        if index < count:
+                            self.assertLessEqual(slot.getextrema()[0], 85)
+                            self.assertEqual(slot.tobytes(), full.crop(bounds).tobytes())
+                        else:
+                            self.assertEqual(slot.getextrema(), (255, 255))
+
     def test_png_format_determinism_and_distinct_states(self):
         images = [render(), render([TaskRow("Long title " * 200)] * 9), render(outage=True)]
         for encoded in images:

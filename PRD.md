@@ -6,7 +6,7 @@
 - The layout gives Current Block about 70% of the header, with a smaller Upcoming Block on the right. Use the same clock design at two sizes. Stack the Todos and Work Tasks cards above a Daily Habits strip with a leaf icon.
 - Read the configured TickTick Time Blocking project. Use each open timed task’s start and due date as its block bounds. The current block includes its start and excludes its end. For overlaps, show the latest start, then manual order. The upcoming block is the earliest future start, including later days. Show times in the dashboard time zone and show explicit empty states. Ignore all-day tasks and tasks without both bounds.
 - Todos (Inbox) and Work Tasks show open TickTick tasks due today or earlier, in manual order. Undated and future tasks are excluded. Use filled bullets for tasks and indented hollow bullets for unchecked checklist entries. Long titles are ellipsized and overflow counts hidden rows.
-- Habits shows the first three active, incomplete habits scheduled for today in TickTick order. Reminder times are ignored. Empty sections are labeled.
+- Habits shows the first three active habits scheduled for today in TickTick order, excluding habits completed or skipped today. Partial check-ins stay eligible until they reach their goal. Unused habit slots stay blank, and reminder times are ignored. Other empty sections are labeled.
 - Today is calculated in the configured IANA dashboard time zone.
 - A failed or incomplete TickTick read produces a readable outage screen. The next wake attempts a fresh read.
 

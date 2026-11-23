@@ -49,7 +49,11 @@ Run this in your private terminal. Omit `--show-titles` to print counts only.
 .venv/bin/python app/probe.py --show-titles
 ```
 
-Compare Inbox and Work against TickTick in manual order, including due, overdue, undated, and future examples that already exist. Verify the Current Block and Upcoming Block against the Time Blocking list. An eligible block is an open timed task with a start and end (TickTick’s due date). Times use the dashboard time zone. The next block can be on a later day. Compare the first three unfinished habits against today's view, checking section order and the habit order within each section. Include a completed habit and a partially checked-in habit if available. Confirm all-day date behavior and any custom recurrence or grouping you use. Record outcomes without account content. A 200-row Inbox response is treated as potentially truncated. If required behavior cannot be verified, pause before changing workflows or enabling the deployment.
+Compare Inbox and Work against TickTick in manual order, including due, overdue, undated, and future examples that already exist. Verify the Current Block and Upcoming Block against the Time Blocking list. An eligible block is an open timed task with a start and end (TickTick’s due date). Times use the dashboard time zone. The next block can be on a later day. A 200-row Inbox response is treated as potentially truncated.
+
+Compare the first three eligible habits against today's view, checking section order and the habit order within each section. The dashboard requests check-ins from today through tomorrow's exclusive boundary in the dashboard time zone. If examples are available, confirm that completed and skipped habits are hidden and that partial check-ins below the goal stay eligible. Check that unused slots in the rendered Daily Habits strip stay blank.
+
+Confirm all-day date behavior and any custom recurrence or grouping you use. Record outcomes without account content. If required behavior cannot be verified, pause before changing workflows or enabling the deployment.
 
 ### Run the live integration test
 

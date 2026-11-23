@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from unittest.mock import patch
 from urllib.error import HTTPError, URLError
 
@@ -39,25 +39,51 @@ class TickTickTests(unittest.TestCase):
                               None, TimeBlock("Planning", "1:00am - 2:00am")))
         read.assert_any_call("/project/blocks/data")
         read.assert_any_call("/task/filter", {"projectIds": ["inbox"], "status": [0]})
-        read.assert_any_call("/habit/checkins?habitIds=a%2Cb%2Cc&from=20261118&to=20261118")
+        read.assert_any_call("/habit/checkins?habitIds=a%2Cb%2Cc&from=20261118&to=20261119")
 
     def test_habits_follow_section_order_before_individual_order(self):
         scheduled = dict(targetStartDate=20261101, repeatRule="RRULE:FREQ=DAILY")
         habits = [
             dict(scheduled, id="a", name="Later section", sectionId="a", sortOrder=-10),
-            dict(scheduled, id="b", name="First section, second habit", sectionId="z", sortOrder=10),
+            dict(scheduled, id="b", name="First section, second habit", sectionId="z",
+                 sortOrder=10, goal=4),
             dict(scheduled, id="c", name="Ungrouped", sortOrder=-20),
-            dict(scheduled, id="d", name="First section, first habit", sectionId="z", sortOrder=-10),
+            dict(scheduled, id="d", name="First section, first habit", sectionId="z",
+                 sortOrder=-10, goal=8),
         ]
         sections = [{"id": "a", "sortOrder": 40}, {"id": "z", "sortOrder": -50}]
         work = {"project": {"id": "work"}, "tasks": []}
         blocks = {"project": {"id": "blocks"}, "tasks": []}
-        with patch.object(self.client, "read",
-                          side_effect=[[], work, blocks, habits, sections, []]) as read:
-            _, _, titles, _, _ = self.client.dashboard("inbox", "work", "blocks", self.now)
-        self.assertEqual(titles, ["First section, first habit", "First section, second habit",
-                                  "Later section"])
-        read.assert_any_call("/habit/sections")
+        checkins = [
+            {"habitId": "b", "checkins": [{"stamp": 20261118, "value": 4, "goal": 5, "status": 0}]},
+            {"habitId": "d", "checkins": [{"stamp": 20261118, "value": 6, "goal": 5}]},
+        ]
+        adjacent_days = {"habitId": "a", "checkins": [{"stamp": 20261117, "value": 1},
+                                                    {"stamp": 20261119, "value": 1}]}
+        skipped = [
+            {"habitId": "a", "checkins": [{"stamp": 20261118, "status": 1, "value": 0}]},
+            {"habitId": "c", "checkins": [{"stamp": 20261117, "status": 1, "value": 0}]},
+        ]
+        cases = (
+            ("unchecked", [], ["First section, first habit", "First section, second habit",
+                               "Later section"]),
+            ("checked in", [*checkins, adjacent_days],
+             ["First section, second habit", "Later section", "Ungrouped"]),
+            ("skipped", [*checkins, *skipped], ["First section, second habit", "Ungrouped"]),
+        )
+        for state, rows, expected in cases:
+            with self.subTest(state=state), patch.object(
+                self.client, "read", side_effect=[[], work, blocks, habits, sections, rows]
+            ) as read:
+                _, _, titles, _, _ = self.client.dashboard("inbox", "work", "blocks", self.now)
+                self.assertEqual(titles, expected)
+                read.assert_any_call("/habit/sections")
+                read.assert_any_call("/habit/checkins?habitIds=a%2Cb%2Cc%2Cd&from=20261118&to=20261119")
+
+    def test_habit_checkin_end_date_rolls_over_at_year_end(self):
+        with patch.object(self.client, "read", return_value=[]) as read:
+            self.assertEqual(self.client.hidden_habit_ids([{"id": "a"}], date(2026, 12, 31)), set())
+        read.assert_called_once_with("/habit/checkins?habitIds=a&from=20261231&to=20270101")
 
     def test_refuses_potentially_truncated_inbox(self):
         with patch.object(self.client, "read", return_value=[{}] * 200):
