@@ -23,7 +23,11 @@ class TickTickTests(unittest.TestCase):
             dict(id="c", name="Excluded date", sortOrder=2, status=0,
                  targetStartDate=20261101, repeatRule="RRULE:FREQ=DAILY", exDates=["20261118"]),
         ]
-        work = {"project": {"id": "work"}, "tasks": [task | {"title": "Work task"}]}
+        work = {
+            "project": {"id": "work"},
+            "columns": [{"id": "active", "name": "Active"}],
+            "tasks": [task | {"title": "Work task", "projectId": "work", "columnId": "active"}],
+        }
         checkins = [
             {"habitId": "a", "checkins": [{"stamp": 20261118, "value": 4}]},
             {"habitId": "b", "checkins": [{"stamp": 20261118, "value": 5}]},
@@ -41,6 +45,59 @@ class TickTickTests(unittest.TestCase):
         read.assert_any_call("/task/filter", {"projectIds": ["inbox"], "status": [0]})
         read.assert_any_call("/habit/checkins?habitIds=a%2Cb%2Cc&from=20261118&to=20261119")
 
+    def test_work_selects_open_top_level_tasks_from_active_in_manual_order(self):
+        def task(title, order=0, **fields):
+            return dict(title=title, sortOrder=order, status=0, columnId="active") | fields
+
+        tasks = [
+            task("Due today", 30, dueDate="2026-11-18T20:00:00Z"),
+            task("Overdue", 20, dueDate="2026-11-17T20:00:00Z", parentId=""),
+            task("Undated", 40, dueDate=None, parentId=None),
+            task("Future parent", 10, id="parent", dueDate="2026-11-19T20:00:00Z",
+                 childIds=["child"], items=[dict(title="Checklist entry", status=0)]),
+            task("Child", id="child", parentId="parent"),
+            task("Child of a task outside Active", parentId="other-parent"),
+            task("Other section", columnId="later", columnName="Active"),
+            task("Unsectioned", columnId=None),
+            task("Completed", status=2),
+            task("Has a completion timestamp", completedTime="2026-11-18T00:00:00Z"),
+            task("Abandoned", status=-1),
+            task("Note", kind="NOTE"),
+        ]
+        inbox = [row | {"projectId": "inbox"} for row in tasks[:4]]
+        work = {
+            "project": {"id": "work"},
+            "columns": [{"id": "later", "name": "Later"}, {"id": "active", "name": "Active"}],
+            "tasks": tasks,
+        }
+        blocks = {"project": {"id": "blocks"}, "tasks": []}
+        with patch.object(self.client, "read", side_effect=[inbox, work, blocks, []]):
+            inbox_rows, work_rows, *_ = self.client.dashboard("inbox", "work", "blocks", self.now)
+        self.assertEqual(inbox_rows, [TaskRow("Overdue"), TaskRow("Due today")])
+        self.assertEqual(work_rows,
+                         [TaskRow(title) for title in ("Future parent", "Overdue",
+                                                       "Due today", "Undated")])
+
+    def test_work_is_empty_without_a_matching_section(self):
+        work = {
+            "project": {"id": "work"},
+            "columns": [{"id": "other", "name": "Later"}],
+            "tasks": [dict(title="Later task", sortOrder=0, status=0, columnId="other")],
+        }
+        blocks = {"project": {"id": "blocks"}, "tasks": []}
+        with patch.object(self.client, "read", side_effect=[[], work, blocks, []]):
+            self.assertEqual(self.client.dashboard("inbox", "work", "blocks", self.now)[1], [])
+
+    def test_work_rejects_ambiguous_active_sections(self):
+        work = {
+            "project": {"id": "work"},
+            "columns": [{"id": "first", "name": "Active"}, {"id": "second", "name": "Active"}],
+            "tasks": [],
+        }
+        with patch.object(self.client, "read", side_effect=[[], work]):
+            with self.assertRaisesRegex(TickTickError, "^work_active_section_ambiguous$"):
+                self.client.dashboard("inbox", "work", "blocks", self.now)
+
     def test_habits_follow_section_order_before_individual_order(self):
         scheduled = dict(targetStartDate=20261101, repeatRule="RRULE:FREQ=DAILY")
         habits = [
@@ -52,7 +109,7 @@ class TickTickTests(unittest.TestCase):
                  sortOrder=-10, goal=8),
         ]
         sections = [{"id": "a", "sortOrder": 40}, {"id": "z", "sortOrder": -50}]
-        work = {"project": {"id": "work"}, "tasks": []}
+        work = {"project": {"id": "work"}, "columns": [], "tasks": []}
         blocks = {"project": {"id": "blocks"}, "tasks": []}
         checkins = [
             {"habitId": "b", "checkins": [{"stamp": 20261118, "value": 4, "goal": 5, "status": 0}]},
@@ -91,13 +148,15 @@ class TickTickTests(unittest.TestCase):
                 self.client.dashboard("inbox", "work", "blocks", self.now)
 
     def test_schema_errors_identify_the_section_without_payload_values(self):
-        work = {"project": {"id": "work"}, "tasks": []}
+        work = {"project": {"id": "work"}, "columns": [], "tasks": []}
         blocks = {"project": {"id": "blocks"}, "tasks": []}
         habit = dict(id="fixture-id", name="Fixture habit", targetStartDate=20261101,
                      repeatRule="RRULE:FREQ=DAILY")
         failures = [
             ([{"private-key": "private-value"}], "inbox/expected_array"),
             ([[], {"project": {"id": "work"}}], "work/missing_field/tasks"),
+            ([[], {"project": {"id": "work"}, "tasks": []}], "work/missing_field/columns"),
+            ([[], work | {"columns": "PRIVATE_VALUE"}], "work/invalid_type"),
             ([[], work, blocks, [habit | {"repeatRule": "PRIVATE_VALUE"}], []],
              "habits/invalid_value"),
             ([[], work, blocks, [habit | {"sectionId": "private-section"}],

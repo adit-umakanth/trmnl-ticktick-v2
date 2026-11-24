@@ -58,6 +58,12 @@ def task_rows(tasks, today, zone):
     ]
 
 
+def work_task_rows(tasks, active_column_id):
+    eligible = (task for task in tasks if task.get("columnId") == active_column_id
+                and not task.get("parentId") and is_open(task))
+    return [TaskRow(task["title"]) for task in sorted(eligible, key=lambda task: task["sortOrder"])]
+
+
 def time_blocks(tasks, now):
     # Compare absolute instants so repeated wall times at a DST transition stay distinct.
     blocks = []
@@ -169,7 +175,7 @@ def briefcase_icon(draw, x, y):
     draw.rectangle((x - 1, y - 1, x + 1, y + 1), fill=WHITE)
 
 
-def task_card(draw, title, tasks, y, *, icon):
+def task_card(draw, title, tasks, y, *, icon, empty):
     draw.rounded_rectangle((12, y, 787, y + 153), radius=10, outline=LIGHT)
     draw.line((13, y + 30, 786, y + 30), fill=LIGHT)
     draw.ellipse((28, y + 4, 50, y + 26), outline=LIGHT)
@@ -180,7 +186,7 @@ def task_card(draw, title, tasks, y, *, icon):
         lines.append((task.title, False))
         lines.extend((item, True) for item in task.checklist)
     if not lines:
-        draw_text(draw, (28, y + 36), "No tasks due", 14, fill=DARK)
+        draw_text(draw, (28, y + 36), empty, 14, fill=DARK)
         return
     capacity = 7
     visible_count = min(len(lines), capacity)
@@ -255,8 +261,8 @@ def render(inbox=(), work=(), habits=(), current=None, upcoming=None, *, outage=
                   fill=DARK, anchor="mt")
     else:
         block_panel(draw, current, upcoming)
-        task_card(draw, "Todos", inbox, 104, icon=list_icon)
-        task_card(draw, "Work Tasks", work, 265, icon=briefcase_icon)
+        task_card(draw, "Todos", inbox, 104, icon=list_icon, empty="No tasks due")
+        task_card(draw, "Work Tasks", work, 265, icon=briefcase_icon, empty="No active tasks")
         habits_strip(draw, habits)
 
     # Map the composited grayscale image to the OG's four native levels,

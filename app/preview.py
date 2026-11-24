@@ -16,7 +16,7 @@ def main():
          TaskRow("Todo 3 with checklist", ("Checklist item A", "Checklist item B")),
          TaskRow("Todo 4"), TaskRow("Todo 5")],
         [TaskRow("Work task 1"), TaskRow("Work task 2"),
-         TaskRow("Work task 3 with checklist", ("Checklist item A", "Checklist item B")),
+         TaskRow("Work task 3"),
          TaskRow("Work task 4"), TaskRow("Work task 5")],
         ["Habit 1", "Habit 2", "Habit 3"],
         TimeBlock("Sample block A", "4:00pm - 5:30pm"),

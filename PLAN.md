@@ -7,3 +7,12 @@
 5. Obtain approval before any cost or deployment. Verify both allowed and denied networks, then verify setup, normal rendering, outage, and recovery on the physical OG.
 
 Commit each milestone after its checks pass. Fixture-backed results and authenticated results are recorded separately.
+
+## Roadmap feature 1 — Work Tasks
+
+- [x] Resolve the Work list's `Active` section from the project data response and select open, top-level tasks by section ID and parent ID.
+- [x] Build one row per eligible Work task in manual order, independent of due date. Show “No active tasks” when there are no eligible rows.
+- [x] Verify with fixtures. All 28 offline tests passed, and the dashboard and outage previews rendered as 800×480, 2-bit grayscale PNGs.
+- [x] Verify the live preview. The authenticated API check found one `Active` section in the configured Work list, the live render passed its PNG checks, and the owner confirmed the preview worked as intended.
+
+Deployment and the physical OG check remain separate milestones.

@@ -11,14 +11,14 @@ from zoneinfo import ZoneInfoNotFoundError
 
 from dateutil.parser import isoparse
 
-from dashboard import habit_titles, task_rows, time_blocks
+from dashboard import habit_titles, task_rows, time_blocks, work_task_rows
 
 BASE_URL = "https://api.ticktick.com/open/v1"
 MAX_RESPONSE = 2_000_000
 SKIPPED_CHECKIN_STATUS = 1
 SCHEMA_FIELDS = frozenset({
     "projectId", "project", "id", "tasks", "status", "sortOrder", "title", "name",
-    "repeatRule", "createdTime", "habitId", "checkins", "stamp", "value",
+    "repeatRule", "createdTime", "habitId", "checkins", "stamp", "value", "columns",
 })
 
 
@@ -86,11 +86,12 @@ class TickTick:
                 raise TickTickError("inbox_membership")
             inbox_rows = task_rows(inbox, today, now.tzinfo)
         with response_schema("work"):
-            work = self.project_tasks(work_id, "work_membership")
-            work_rows = task_rows(work, today, now.tzinfo)
+            work = self.project_data(work_id, "work_membership")
+            active_id = active_work_column_id(work["columns"])
+            work_rows = work_task_rows(work["tasks"], active_id) if active_id else []
         with response_schema("time_blocking"):
-            blocks = self.project_tasks(time_blocking_id, "time_blocking_membership")
-            current, upcoming = time_blocks(blocks, now)
+            blocks = self.project_data(time_blocking_id, "time_blocking_membership")
+            current, upcoming = time_blocks(blocks["tasks"], now)
         with response_schema("habits"):
             habits = self.read("/habit")
             if not isinstance(habits, list):
@@ -117,13 +118,13 @@ class TickTick:
             titles = habit_titles(scheduled, hidden, today)
         return inbox_rows, work_rows, titles, current, upcoming
 
-    def project_tasks(self, project_id, mismatch):
+    def project_data(self, project_id, mismatch):
         data = self.read(f"/project/{quote(project_id, safe='')}/data")
         if data["project"]["id"] != project_id:
             raise TickTickError(mismatch)
         if not isinstance(data["tasks"], list):
             raise TypeError("Expected a task array")
-        return data["tasks"]
+        return data
 
     def habit_section_ranks(self, section_ids):
         with response_schema("habit_sections"):
@@ -165,6 +166,23 @@ class TickTick:
                 if item.get("status") == SKIPPED_CHECKIN_STATUS or item["value"] >= goal:
                     hidden.add(habit["id"])
         return hidden
+
+
+def active_work_column_id(columns):
+    if not isinstance(columns, list):
+        raise TypeError
+    active_id = None
+    for column in columns:
+        name, column_id = column["name"], column["id"]
+        if not isinstance(name, str) or not isinstance(column_id, str):
+            raise TypeError
+        if not column_id:
+            raise ValueError
+        if name == "Active":
+            if active_id is not None:
+                raise TickTickError("work_active_section_ambiguous")
+            active_id = column_id
+    return active_id
 
 
 def habit_start(habit, now):

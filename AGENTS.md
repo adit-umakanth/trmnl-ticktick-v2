@@ -6,3 +6,5 @@
 - Keep network, rendering, and AWS integration independently testable. Run relevant tests and report skipped or blocked verification.
 - Keep credentials and personal TickTick content out of Git, URLs, logs, and checked-in fixtures.
 - Obtain explicit approval before incurring costs, deploying infrastructure, or making irreversible changes. Physical OG compatibility requires an actual device check.
+
+Roadmap feature 1 (Work Tasks from `Active`) is complete. See [PLAN.md](PLAN.md) for fixture and live preview verification.

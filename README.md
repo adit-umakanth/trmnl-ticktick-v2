@@ -49,7 +49,9 @@ Run this in your private terminal. Omit `--show-titles` to print counts only.
 .venv/bin/python app/probe.py --show-titles
 ```
 
-Compare Inbox and Work against TickTick in manual order, including due, overdue, undated, and future examples that already exist. Verify the Current Block and Upcoming Block against the Time Blocking list. An eligible block is an open timed task with a start and end (TickTick’s due date). Times use the dashboard time zone. The next block can be on a later day. A 200-row Inbox response is treated as potentially truncated.
+Compare Inbox and Work against TickTick in manual order. Inbox includes tasks due today or earlier. Work includes open, top-level tasks in the section named `Active`, including overdue, due-today, future-dated, and undated tasks. Check that tasks in other sections, unsectioned tasks, subtasks, and checklist entries are absent from Work.
+
+Verify the Current Block and Upcoming Block against the Time Blocking list. An eligible block is an open timed task with a start and end (TickTick’s due date). Times use the dashboard time zone. The next block can be on a later day. A 200-row Inbox response is treated as potentially truncated.
 
 Compare the first three eligible habits against today's view, checking section order and the habit order within each section. The dashboard requests check-ins from today through tomorrow's exclusive boundary in the dashboard time zone. If examples are available, confirm that completed and skipped habits are hidden and that partial check-ins below the goal stay eligible. Check that unused slots in the rendered Daily Habits strip stay blank.
 
@@ -73,7 +75,9 @@ TICKTICK_LIVE=1 TICKTICK_PREVIEW_DIR="$preview_dir" PYTHONPATH=app \
 open "$preview_dir"
 ```
 
-**Current verification status** — Unit tests use synthetic responses informed by the official CLI. Built-in Inbox access, archive/check-in semantics, and ordering still require an authenticated comparison.
+**Work Tasks verification** — Synthetic tests passed for section membership, due-date coverage, manual order, and parent-task filtering. The official API returned one `Active` section for the configured Work list, and the owner confirmed the live dashboard preview. Physical OG verification remains pending.
+
+Detailed comparison of built-in Inbox behavior, habit ordering, and archive and check-in semantics with the signed-in app remains pending.
 
 ## AWS deployment after explicit approval
 
