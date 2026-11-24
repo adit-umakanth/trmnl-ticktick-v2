@@ -4,9 +4,12 @@ import base64
 import json
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, time, timedelta, timezone
 from functools import lru_cache
+from math import ceil
 from zoneinfo import ZoneInfo
+
+from dateutil.tz import resolve_imaginary
 
 from dashboard import render
 from snapshots import Snapshots
@@ -32,6 +35,31 @@ def png(payload):
         "body": base64.b64encode(payload).decode("ascii"),
         "isBase64Encoded": True,
     }
+
+
+def display_timing(local, settings):
+    refresh = int(settings["REFRESH_SECONDS"])
+    bedtime = time.fromisoformat(settings["BEDTIME"])
+    wake_time = time.fromisoformat(settings["WAKE_TIME"])
+    if bedtime == wake_time:
+        return None, refresh
+
+    instant = local.timestamp()
+
+    def next_occurrence(wall_time):
+        day = local.date()
+        # Use the first occurrence of repeated times and move skipped times forward by the gap.
+        target = resolve_imaginary(datetime.combine(day, wall_time, local.tzinfo))
+        if target.timestamp() <= instant:
+            target = resolve_imaginary(datetime.combine(day + timedelta(days=1),
+                                                        wall_time, local.tzinfo))
+        return target
+
+    next_bedtime = next_occurrence(bedtime).timestamp()
+    next_wake = next_occurrence(wake_time)
+    if next_wake.timestamp() < next_bedtime:
+        return next_wake, ceil(next_wake.timestamp() - instant)
+    return None, min(refresh, ceil(next_bedtime - instant))
 
 
 def byos(event, settings, credentials, snapshots, clock, ticktick=TickTick):
@@ -62,22 +90,26 @@ def byos(event, settings, credentials, snapshots, clock, ticktick=TickTick):
                              "image_url": f"{base}/images/setup.png",
                              "message": "Device ready"})
 
-    token = credentials()["ticktick_token"]
     now = clock()
     local = now.astimezone(ZoneInfo(settings["DASHBOARD_TIMEZONE"]))
-    try:
-        sections = ticktick(token).dashboard(
-            settings["INBOX_ID"], settings["WORK_LIST_ID"],
-            settings["TIME_BLOCKING_LIST_ID"], local
-        )
-        payload = render(*sections)
-    except TickTickError as error:
-        LOG.warning(json.dumps({"event": "ticktick_unavailable", "reason": str(error)}))
-        payload = render(outage=True)
+    sleep_until, refresh = display_timing(local, settings)
+    if sleep_until is not None:
+        payload = render(sleep_until=sleep_until)
+    else:
+        token = credentials()["ticktick_token"]
+        try:
+            sections = ticktick(token).dashboard(
+                settings["INBOX_ID"], settings["WORK_LIST_ID"],
+                settings["TIME_BLOCKING_LIST_ID"], local
+            )
+            payload = render(*sections)
+        except TickTickError as error:
+            LOG.warning(json.dumps({"event": "ticktick_unavailable", "reason": str(error)}))
+            payload = render(outage=True)
     filename = snapshots.publish(payload, int(now.timestamp()))
     return respond(200, {
         "status": 0, "image_url": f"{base}/images/{filename}.png", "filename": filename,
-        "refresh_rate": int(settings["REFRESH_SECONDS"]), "reset_firmware": False,
+        "refresh_rate": refresh, "reset_firmware": False,
         "update_firmware": False, "firmware_url": None, "special_function": "none",
         "maximum_compatibility": False, "temperature_profile": "default",
     })

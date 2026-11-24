@@ -25,6 +25,16 @@ Parameters:
     Default: 900
     MinValue: 60
     MaxValue: 86400
+  Bedtime:
+    Type: String
+    Default: '22:00'
+    AllowedPattern: '([01][0-9]|2[0-3]):[0-5][0-9]'
+    Description: Daily bedtime in dashboard-local 24-hour HH:MM.
+  WakeTime:
+    Type: String
+    Default: '07:00'
+    AllowedPattern: '([01][0-9]|2[0-3]):[0-5][0-9]'
+    Description: Daily wake-up time in dashboard-local 24-hour HH:MM.
 
 Resources:
   ByosApi:
@@ -96,6 +106,8 @@ Resources:
           TIME_BLOCKING_LIST_ID: !Ref TimeBlockingListId
           DASHBOARD_TIMEZONE: !Ref DashboardTimezone
           REFRESH_SECONDS: !Ref RefreshSeconds
+          BEDTIME: !Ref Bedtime
+          WAKE_TIME: !Ref WakeTime
       Policies:
         - Statement:
             - Effect: Allow

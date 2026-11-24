@@ -4,6 +4,8 @@ A single-device BYOS server for the TRMNL OG. It uses the TickTick Open API, dra
 
 Work Tasks appears on refresh from 8:00 a.m. up to 5:00 p.m., Monday to Friday, in the configured dashboard time zone. After hours and on weekends, Todos fills the space.
 
+The dashboard sleeps from 10:00 p.m. to 7:00 a.m. daily by default, in the configured dashboard time zone. At bedtime it shows the next refresh time and asks the device to wait until wake-up. A manual refresh during the window recalculates the remaining wait. The dashboard skips TickTick and credential reads during sleep and resumes its usual cadence at wake-up.
+
 The renderer uses antialiased Source Sans 3 with native grayscale levels 0, 85, 170, and 255 in a 2-bit grayscale PNG. The OG requires firmware 1.6.0 or newer for this format. Source Sans 3 is bundled under the [SIL Open Font License](app/fonts/OFL.txt). [TRMNL image format guide](https://docs.trmnl.com/go/diy/imagemagick-guide)
 
 ## Run locally
@@ -16,6 +18,7 @@ python3.12 -m venv .venv
 PYTHONPATH=app .venv/bin/python scripts/preview.py preview.png
 PYTHONPATH=app .venv/bin/python scripts/preview.py preview-after-hours.png --after-hours
 PYTHONPATH=app .venv/bin/python scripts/preview.py preview-outage.png --outage
+PYTHONPATH=app .venv/bin/python scripts/preview.py preview-sleep.png --sleep
 PYTHONPATH=app .venv/bin/python -m unittest discover -s tests -v
 sam validate --lint --region us-east-1
 sam build
@@ -83,6 +86,8 @@ For an existing deployment, keep the same SecureString name and value. The new h
 
 The deployment helper passes the saved settings to SAM as defaults for `InboxId`, `WorkListId`, `TimeBlockingListId`, and `DashboardTimezone`. Press Enter to accept them. Supply your home public IPv4 `/32` and the Parameter Store parameter **name** when SAM prompts. The `DeviceMac` parameter has been removed. Drop it from any saved SAM parameter overrides. Review the change set before executing it. To use a named AWS profile, add `--profile PROFILE` to the helper command.
 
+Set `Bedtime` and `WakeTime` in guided SAM deployment using 24-hour `HH:MM` in the dashboard time zone. A window such as `22:00` to `22:15` ends the same evening. Set both to the same time to disable sleep. If a scheduled time repeats when clocks fall back, the first occurrence applies. If clocks skip it in spring, the transition moves forward by the size of the clock change.
+
 API Gateway uses the public source IPv4 as the sole access gate for all BYOS routes. Any client reaching API Gateway from the allowed public IP can fetch dashboard images. Setup returns fixed firmware compatibility values, and the server ignores the `ID` and `Access-Token` headers.
 
 ```sh
@@ -109,5 +114,6 @@ Time Blocking adds one TickTick project read per display request. At 15-minute r
 - **Verified.** From the home network, call `GET /api/setup`, `GET /api/display`, and `POST /api/log` without device headers and expect HTTP 200. Fetch `/images/setup.png` and the display image URL without device headers and confirm both return an 800×480 PNG. Verify setup and normal refresh on the physical OG, including retrieval on repeated wakes.
 - **Verified.** During a window with no device traffic, request the setup image from cellular or another off-network connection. Expect HTTP 403. In CloudWatch, confirm the test did not increment Lambda invocations or produce a Lambda request log. Repeat against `/api/setup`, `/api/display`, and `/api/log`. Account for metrics publication delay.
 - **Pending.** With approval, use a temporarily invalid TickTick token in the existing SecureString. Verify that the live display endpoint returns the outage image and the OG shows it. Restore the valid token, verify that the live endpoint returns the normal dashboard, and verify recovery on the next OG wake. The function reads the parameter on each display request.
+- **Verified.** The owner confirmed that the physical OG showed the sleep screen and automatically returned to the dashboard with a 10:00–10:15 p.m. sleep window. Overnight and daylight-saving timing were verified with fixtures.
 - To update the IP allowlist, rerun the deployment helper with the new `HomeCidr` and the existing values for the other parameters, then repeat the network checks. For application rollback, check out the last known-good revision in a separate checkout, run `sam build`, and run a guided deploy against the existing stack using its current configuration. If that revision predates the helper, use `sam deploy --guided`.
 - Logs expire after 14 days. Image snapshots expire after three days. On approved teardown, `sam delete --region us-east-1 --stack-name trmnl-ticktick` deletes the stack and retains the private snapshot bucket. The bucket and the separately created SecureString can be deleted independently after approval.

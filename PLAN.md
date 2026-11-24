@@ -32,3 +32,14 @@ Commit each milestone after its checks pass. Fixture-backed results and authenti
 - [x] SAM validation and the Linux arm64 build passed. Deployed `aea6f2e` to the existing `trmnl-ticktick` stack in `us-east-1` using its existing parameter values. CloudFormation reached `UPDATE_COMPLETE`, and live BYOS setup, display, and image retrieval verified the expanded Todos layout.
 - [x] The owner confirmed the weekday Work Tasks schedule and after-hours Todos layout on the physical TRMNL OG.
 - [ ] Compare both layouts against the signed-in TickTick app.
+
+## Overnight sleep screen
+
+Tracked in [issue #3](https://github.com/adit-umakanth/trmnl-ticktick-v2/issues/3).
+
+- [x] Add dashboard-local `Bedtime` and `WakeTime` SAM parameters and calculate when the next transition occurs. Use elapsed seconds to set BYOS refresh timing across midnight and daylight-saving changes.
+- [x] Publish a sleep snapshot through the existing image route before reading credentials or constructing the TickTick client. Resume normal reads at wake-up.
+- [x] Add an offline sleep preview and document configuration and device verification.
+- [x] Run the offline suite, SAM lint, and the Linux arm64 container build. All 33 offline tests passed, and the opt-in live TickTick test was skipped. SAM lint and the build passed. Visually inspected the sleep preview and verified it was an 800×480 2-bit grayscale PNG at 2,231 bytes.
+- [x] Verify a same-day sleep window locally. With bedtime at 10:00 p.m. and wake-up at 10:15 p.m., the server returned 900 seconds at bedtime and 600 seconds for a 10:05 p.m. request. At 10:15 p.m. it served the regular dashboard.
+- [x] Verify the sleep screen and automatic wake-up on the physical OG. The owner confirmed the 10:00–10:15 p.m. window worked as expected on November 23, 2026. The overnight and daylight-saving timing checks used fixtures.

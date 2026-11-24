@@ -14,6 +14,7 @@ CONFIG = {
     "DASHBOARD_TIMEZONE": "Etc/UTC",
     "INBOX_ID": "inbox", "WORK_LIST_ID": "work", "REFRESH_SECONDS": "900",
     "TIME_BLOCKING_LIST_ID": "blocks",
+    "BEDTIME": "22:00", "WAKE_TIME": "07:00",
 }
 CREDENTIALS = {"ticktick_token": "test-token"}
 
@@ -101,8 +102,10 @@ class ByosTests(unittest.TestCase):
         settings = {**CONFIG, "CREDENTIAL_PARAMETER": "/test/credentials"}
         arbitrary = {"ID": "arbitrary-id", "Access-Token": "arbitrary-token"}
         with (patch.dict("os.environ", settings),
+              patch("byos.datetime", wraps=datetime) as clock,
               patch("byos.aws_clients", return_value=(ssm, self.storage)),
               patch("byos.TickTick.dashboard", autospec=True, return_value=self.feed.sections) as dashboard):
+            clock.now.return_value = datetime.fromtimestamp(self.time, timezone.utc)
             for credentials in (CREDENTIALS, {**CREDENTIALS, "device_key": "legacy-test-key"}):
                 ssm.get_parameter.return_value = {"Parameter": {"Value": json.dumps(credentials)}}
                 for headers in (None, arbitrary):
@@ -173,6 +176,66 @@ class ByosTests(unittest.TestCase):
                 paths = [call.args[0] for call in read.call_args_list]
                 self.assertEqual("/project/work/data" in paths, show_work)
                 self.assertEqual(display["refresh_rate"], 900)
+
+    def test_overnight_display_and_morning_resume(self):
+        settings = CONFIG | {"DASHBOARD_TIMEZONE": "America/Chicago",
+                             "BEDTIME": "22:15", "WAKE_TIME": "06:30"}
+        ticktick = Mock(return_value=self.feed)
+        wake = datetime.fromisoformat("2026-11-22T06:30:00-06:00")
+        sleeping_image = render(sleep_until=wake)
+        cases = (
+            ("2026-11-22T04:14:59.500Z", 1, False),  # Just before Saturday bedtime
+            ("2026-11-22T04:15:00Z", 29_700, True),  # Saturday bedtime
+            ("2026-11-22T06:00:00Z", 23_400, True),  # Sunday midnight
+            ("2026-11-22T12:29:59.500Z", 1, True),  # Just before Sunday wake-up
+            ("2026-11-22T12:30:00Z", 900, False),  # Sunday wake-up
+        )
+        for instant, refresh, sleeping in cases:
+            with self.subTest(instant=instant):
+                self.credentials.reset_mock()
+                ticktick.reset_mock()
+                response = byos(self.event("/api/display"), settings, self.credentials,
+                                self.storage, lambda: datetime.fromisoformat(instant), ticktick)
+                self.assertEqual(response["statusCode"], 200)
+                display = json.loads(response["body"])
+                self.assertEqual(display["status"], 0)
+                self.assertEqual(display["refresh_rate"], refresh)
+                self.assertEqual(display["special_function"], "none")
+                image = self.request("/images/{image}", image=display["filename"] + ".png")
+                self.assertEqual(base64.b64decode(image["body"]),
+                                 sleeping_image if sleeping else render(*self.feed.sections))
+                if sleeping:
+                    self.credentials.assert_not_called()
+                    ticktick.assert_not_called()
+                else:
+                    self.credentials.assert_called_once_with()
+                    ticktick.assert_called_once_with("test-token")
+        self.assertEqual(self.feed.calls, 2)
+
+    def test_sleep_refresh_uses_elapsed_seconds_across_daylight_saving_changes(self):
+        settings = CONFIG | {"DASHBOARD_TIMEZONE": "America/Chicago"}
+        cases = (
+            ("2026-03-08T04:00:00Z", "07:00", 8 * 3600),
+            ("2026-11-01T03:00:00Z", "07:00", 10 * 3600),
+            ("2026-03-08T04:00:00Z", "02:30", 4.5 * 3600),  # Skipped, occurs at 3:30 CDT
+            ("2026-11-01T03:00:00Z", "01:30", 3.5 * 3600),  # First 1:30, in CDT
+            ("2026-11-01T07:00:00Z", "01:30", 900),  # Second 1:00, after wake-up
+        )
+        for instant, wake_time, expected in cases:
+            with self.subTest(instant=instant, wake_time=wake_time):
+                response = byos(self.event("/api/display"), settings | {"WAKE_TIME": wake_time},
+                                self.credentials, self.storage,
+                                lambda: datetime.fromisoformat(instant), lambda token: self.feed)
+                self.assertEqual(json.loads(response["body"])["refresh_rate"], expected)
+        self.assertEqual(self.feed.calls, 1)
+
+    def test_equal_times_disable_sleep(self):
+        response = byos(self.event("/api/display"), CONFIG | {"WAKE_TIME": "22:00"},
+                        self.credentials, self.storage,
+                        lambda: datetime.fromisoformat("2026-11-22T23:00:00Z"),
+                        lambda token: self.feed)
+        self.assertEqual(json.loads(response["body"])["refresh_rate"], 900)
+        self.assertEqual(self.feed.calls, 1)
 
     def test_outage_and_recovery(self):
         for reason in ("timeout", "http_503"):

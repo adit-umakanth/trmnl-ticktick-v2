@@ -12,6 +12,7 @@
 - Habits shows the first three active habits scheduled for today in TickTick order, excluding habits completed or skipped today. Partial check-ins stay eligible until they reach their goal. Unused habit slots stay blank, and reminder times are ignored. Other empty sections are labeled.
 - Today is calculated in the configured IANA dashboard time zone.
 - A failed or incomplete TickTick read produces a readable outage screen. The next wake attempts a fresh read.
+- [Issue #3](https://github.com/adit-umakanth/trmnl-ticktick-v2/issues/3) adds a daily sleep window with configurable bedtime and wake-up time in the dashboard time zone. Default to 10:00 p.m. and 7:00 a.m. The window can end the same day or cross midnight. Setting both times to the same value disables the window. From bedtime inclusive to wake-up exclusive, show a sleep screen with the next refresh time and skip credential and TickTick reads. Each request during that window returns the remaining time until wake-up in elapsed seconds, accounting for daylight-saving changes. Outside the window, use the normal cadence and shorten the last interval if it would extend past bedtime.
 
 ## Nonfunctional requirements
 
@@ -25,6 +26,7 @@
 - Synthetic Work project responses verify section membership by ID, all four due-date cases, manual order, and the exclusion of completed tasks, subtasks, and checklist entries. Missing or ambiguous section metadata uses the existing outage path.
 - Fixture tests verify the work window at its boundaries, on weekends, and across seasonal UTC offsets. They verify that after-hours refreshes skip the Work list read and that Todos gains room for more rows while preserving checklist grouping, overflow counts, and the Daily Habits strip.
 - BYOS tests cover provisioning and requests with absent or arbitrary device headers, refresh timing, repeat filenames, and retrieval of an earlier snapshot after a newer publication.
+- For issue #3, fixture tests verify bedtime, midnight, wake-up, weekend behavior, daylight-saving transitions, no upstream reads during sleep, and the return to a fresh dashboard at wake-up. The sleep screen meets the existing PNG constraints. The owner verified the sleep screen and automatic refresh on the physical OG with a 10:00–10:15 p.m. sleep window.
 - Live verification covers official TickTick reads, allowed and denied source networks, the display on physical hardware, and recovery from a controlled TickTick failure.
 
 The owner confirmed normal dashboard behavior in the live preview and on the physical OG, including Work Tasks from `Active`, BYOS setup, rendering, and repeated refreshes. The allowed and denied source-network checks also passed. Live outage rendering and recovery from a controlled TickTick failure remain pending.

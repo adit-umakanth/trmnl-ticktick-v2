@@ -55,7 +55,8 @@ class DashboardTests(unittest.TestCase):
 
     def test_png_format_determinism_and_distinct_states(self):
         images = [render(), render([TaskRow("Long title " * 200)] * 9), render(outage=True),
-                  render([TaskRow("Long title " * 200)] * 18, work=None)]
+                  render([TaskRow("Long title " * 200)] * 18, work=None),
+                  render(sleep_until=datetime(2026, 11, 24, 7))]
         for encoded in images:
             with Image.open(BytesIO(encoded)) as image:
                 image.load()

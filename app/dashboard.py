@@ -254,10 +254,18 @@ def habits_strip(draw, habits):
                   14, anchor="mm")
 
 
-def render(inbox=(), work=(), habits=(), current=None, upcoming=None, *, outage=False):
+def render(inbox=(), work=(), habits=(), current=None, upcoming=None, *, outage=False,
+           sleep_until=None):
     image = Image.new("L", (800, 480), WHITE)
     draw = ImageDraw.Draw(image)
-    if outage:
+    if sleep_until is not None:
+        draw.ellipse((367, 128, 433, 194), fill=DARK)
+        draw.ellipse((385, 119, 443, 177), fill=WHITE)
+        draw_text(draw, (400, 224), "Sleeping", 42, 650, anchor="mt")
+        wake_label = sleep_until.strftime("%I:%M %p").lstrip("0").lower()
+        draw_text(draw, (400, 283), f"Next refresh at {wake_label}", 24,
+                  fill=DARK, anchor="mt")
+    elif outage:
         draw_text(draw, (400, 204), "TickTick unavailable", 38, 650, anchor="mt")
         draw_text(draw, (400, 258), "Trying again on the next refresh.", 23,
                   fill=DARK, anchor="mt")
