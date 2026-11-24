@@ -3,10 +3,11 @@
 ## Functional requirements
 
 - A single configured TRMNL OG uses the stock BYOS setup, display, and log endpoints. It sees an 800×480 four-gray dashboard and refreshes every 900 seconds by default.
-- The layout gives Current Block about 70% of the header, with a smaller Upcoming Block on the right. Use the same clock design at two sizes. Stack the Todos and Work Tasks cards above a Daily Habits strip with a leaf icon.
+- The layout gives Current Block about 70% of the header, with a smaller Upcoming Block on the right. Use the same clock design at two sizes. Stack the Todos and Work Tasks cards above a Daily Habits strip with a leaf icon during work hours. Outside work hours, expand Todos into the space normally occupied by Work Tasks.
 - Read the configured TickTick Time Blocking project. Use each open timed task’s start and due date as its block bounds. The current block includes its start and excludes its end. For overlaps, show the latest start, then manual order. The upcoming block is the earliest future start, including later days. Show times in the dashboard time zone and show explicit empty states. Ignore all-day tasks and tasks without both bounds.
 - Todos (Inbox) shows open TickTick tasks due today or earlier in manual order, with indented hollow bullets for unchecked checklist entries.
 - Work Tasks shows only open, top-level tasks in the section named `Active` in the configured Work list, in manual order. Include overdue, due-today, future-dated, and undated tasks. Each eligible task contributes one row. Exclude tasks with a parent, checklist entries, unsectioned tasks, and tasks in other sections. An empty or absent `Active` section in a valid section list shows “No active tasks.”
+- Read and show Work Tasks Monday through Friday from 8:00 a.m. inclusive to 5:00 p.m. exclusive in the configured IANA dashboard time zone. Apply the schedule at each display refresh. Skip the Work list read outside that window.
 - Use filled bullets for tasks. Long titles are ellipsized and overflow counts hidden rows.
 - Habits shows the first three active habits scheduled for today in TickTick order, excluding habits completed or skipped today. Partial check-ins stay eligible until they reach their goal. Unused habit slots stay blank, and reminder times are ignored. Other empty sections are labeled.
 - Today is calculated in the configured IANA dashboard time zone.
@@ -22,6 +23,7 @@
 
 - Local tests verify filtering across midnight, ordering, habit completion, overflow, empty states, checklist rows, time block boundaries and overlap, and outage behavior. The PNG decodes as 800×480 at two grayscale bits per pixel, uses levels 0, 85, 170, and 255, preserves gray pixels along antialiased Source Sans 3 glyph edges, and fits within 90,000 bytes.
 - Synthetic Work project responses verify section membership by ID, all four due-date cases, manual order, and the exclusion of completed tasks, subtasks, and checklist entries. Missing or ambiguous section metadata uses the existing outage path.
+- Fixture tests verify the work window at its boundaries, on weekends, and across seasonal UTC offsets. They verify that after-hours refreshes skip the Work list read and that Todos gains room for more rows while preserving checklist grouping, overflow counts, and the Daily Habits strip.
 - BYOS tests cover provisioning and requests with absent or arbitrary device headers, refresh timing, repeat filenames, and retrieval of an earlier snapshot after a newer publication.
 - Live verification covers official TickTick reads, allowed and denied source networks, the display on physical hardware, and recovery from a controlled TickTick failure.
 

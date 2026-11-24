@@ -23,3 +23,12 @@ Commit each milestone after its checks pass. Fixture-backed results and authenti
 - [x] Verify access from the allowed home network and rejection from an off-network connection before Lambda invocation. The owner confirmed both checks.
 - [x] Verify BYOS setup, normal dashboard rendering, and image retrieval on repeated wakes on the physical OG. The owner confirmed normal behavior on the device.
 - [ ] Verify outage rendering and recovery with a controlled TickTick authentication failure in the live integration and on the physical OG.
+
+## Weekday Work Tasks
+
+- [x] Gate the Work list read on the dashboard-local weekday and time. Distinguish a hidden Work card from an empty Work list during work hours.
+- [x] Expand Todos when Work Tasks is hidden. Keep the header and Daily Habits strip in place and preserve checklist and overflow behavior.
+- [x] All 30 offline tests passed, including the boundaries, seasonal UTC offsets, weekend behavior, and snapshot output. Work-hours, after-hours, and outage previews were visually inspected and verified as 800×480, 2-bit grayscale PNGs below 90,000 bytes.
+- [x] SAM validation and the Linux arm64 build passed. Deployed `aea6f2e` to the existing `trmnl-ticktick` stack in `us-east-1` using its existing parameter values. CloudFormation reached `UPDATE_COMPLETE`, and live BYOS setup, display, and image retrieval verified the expanded Todos layout.
+- [x] The owner confirmed the weekday Work Tasks schedule and after-hours Todos layout on the physical TRMNL OG.
+- [ ] Compare both layouts against the signed-in TickTick app.

@@ -54,7 +54,8 @@ class DashboardTests(unittest.TestCase):
                             self.assertEqual(slot.getextrema(), (255, 255))
 
     def test_png_format_determinism_and_distinct_states(self):
-        images = [render(), render([TaskRow("Long title " * 200)] * 9), render(outage=True)]
+        images = [render(), render([TaskRow("Long title " * 200)] * 9), render(outage=True),
+                  render([TaskRow("Long title " * 200)] * 18, work=None)]
         for encoded in images:
             with Image.open(BytesIO(encoded)) as image:
                 image.load()
@@ -67,7 +68,7 @@ class DashboardTests(unittest.TestCase):
             self.assertEqual(set(image.crop((41, 140, 220, 156)).get_flattened_data()),
                              {0, 85, 170, 255})
         self.assertEqual(render(), images[0])
-        self.assertEqual(len(set(images)), 3)
+        self.assertEqual(len(set(images)), len(images))
         self.assertTrue(fit(ImageDraw.Draw(Image.new("L", (800, 480))),
                             "Long title " * 20, 200, 21).endswith("…"))
 
@@ -86,12 +87,28 @@ class DashboardTests(unittest.TestCase):
         self.assertNotEqual(render([TaskRow("Same task")] * 9), render([TaskRow("Same task")] * 10))
 
     def test_overflow_keeps_parent_with_first_checklist_item(self):
-        visible = [TaskRow("Visible task")] * 5
         first = TaskRow("First parent", ("Checklist item",))
         second = TaskRow("Second parent", first.checklist)
-        self.assertNotEqual(render([*visible, first]), render([*visible, second]))
-        self.assertEqual(render([*visible, first, TaskRow("Another task")]),
-                         render([*visible, second, TaskRow("Another task")]))
+        for work, preceding_rows in (((), 5), (None, 14)):
+            with self.subTest(work=work):
+                visible = [TaskRow("Visible task")] * preceding_rows
+                self.assertNotEqual(render([*visible, first], work=work),
+                                    render([*visible, second], work=work))
+                self.assertEqual(render([*visible, first, TaskRow("Another task")], work=work),
+                                 render([*visible, second, TaskRow("Another task")], work=work))
+
+    def test_expanded_todos_uses_work_space_and_preserves_header_and_habits(self):
+        rows = [TaskRow("Fixture task")] * 7
+        added = TaskRow("An extra Todo")
+        self.assertNotEqual(render(rows, work=None), render([*rows, added], work=None))
+        options = dict(habits=["Read"], upcoming=TimeBlock("Planning", "6:00pm - 7:00pm"))
+        with (Image.open(BytesIO(render([*rows, added], work=None, **options))) as expanded,
+              Image.open(BytesIO(render([*rows, added], **options))) as stacked):
+            for region in ((0, 0, 800, 104), (0, 431, 800, 480)):
+                self.assertEqual(expanded.crop(region).tobytes(), stacked.crop(region).tobytes())
+            # The second card's heading is replaced by Todo rows.
+            self.assertNotEqual(expanded.crop((28, 269, 200, 291)).tobytes(),
+                                stacked.crop((28, 269, 200, 291)).tobytes())
 
     def test_open_checklist_rows_are_nested_and_sorted(self):
         today = date(2026, 11, 18)

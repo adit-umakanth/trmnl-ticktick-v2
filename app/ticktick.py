@@ -2,7 +2,7 @@
 
 import json
 from contextlib import contextmanager
-from datetime import date, timedelta
+from datetime import date, time, timedelta
 from http.client import HTTPException
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
@@ -85,10 +85,12 @@ class TickTick:
             if any(task["projectId"] != inbox_id for task in inbox):
                 raise TickTickError("inbox_membership")
             inbox_rows = task_rows(inbox, today, now.tzinfo)
-        with response_schema("work"):
-            work = self.project_data(work_id, "work_membership")
-            active_id = active_work_column_id(work["columns"])
-            work_rows = work_task_rows(work["tasks"], active_id) if active_id else []
+        work_rows = None
+        if now.weekday() < 5 and time(8) <= now.time() < time(17):
+            with response_schema("work"):
+                work = self.project_data(work_id, "work_membership")
+                active_id = active_work_column_id(work["columns"])
+                work_rows = work_task_rows(work["tasks"], active_id) if active_id else []
         with response_schema("time_blocking"):
             blocks = self.project_data(time_blocking_id, "time_blocking_membership")
             current, upcoming = time_blocks(blocks["tasks"], now)

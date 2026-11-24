@@ -175,8 +175,8 @@ def briefcase_icon(draw, x, y):
     draw.rectangle((x - 1, y - 1, x + 1, y + 1), fill=WHITE)
 
 
-def task_card(draw, title, tasks, y, *, icon, empty):
-    draw.rounded_rectangle((12, y, 787, y + 153), radius=10, outline=LIGHT)
+def task_card(draw, title, tasks, y, bottom, *, icon, empty):
+    draw.rounded_rectangle((12, y, 787, bottom), radius=10, outline=LIGHT)
     draw.line((13, y + 30, 786, y + 30), fill=LIGHT)
     draw.ellipse((28, y + 4, 50, y + 26), outline=LIGHT)
     icon(draw, 39, y + 15)
@@ -188,16 +188,18 @@ def task_card(draw, title, tasks, y, *, icon, empty):
     if not lines:
         draw_text(draw, (28, y + 36), empty, 14, fill=DARK)
         return
-    capacity = 7
+    top = y + 36
+    row_height, task_gap = 15, 2
+    # Reserve space for the full row height and the gap between top-level tasks.
+    capacity = (bottom - top + task_gap) // (row_height + task_gap)
     visible_count = min(len(lines), capacity)
     if len(lines) > capacity:
         visible_count -= 1  # Reserve a row for the overflow count.
         if not lines[visible_count - 1][1] and lines[visible_count][1]:
             visible_count -= 1  # Keep a parent with its first checklist item.
-    top = y + 36
     for index, (label, child) in enumerate(lines[:visible_count]):
         if index and not child:
-            top += 2
+            top += task_gap
         marker_x = 46 if child else 28
         left = marker_x + 13
         marker = (marker_x, top + 4, marker_x + 5, top + 9)
@@ -206,9 +208,9 @@ def task_card(draw, title, tasks, y, *, icon, empty):
         else:
             draw.ellipse(marker, fill=BLACK)
         draw_text(draw, (left, top), fit(draw, label, 770 - left, 14), 14)
-        top += 15
+        top += row_height
     if visible_count < len(lines):
-        draw_text(draw, (41, top + 2), f"+{len(lines) - visible_count} more", 14, 550,
+        draw_text(draw, (41, top + task_gap), f"+{len(lines) - visible_count} more", 14, 550,
                   fill=DARK)
 
 
@@ -261,8 +263,12 @@ def render(inbox=(), work=(), habits=(), current=None, upcoming=None, *, outage=
                   fill=DARK, anchor="mt")
     else:
         block_panel(draw, current, upcoming)
-        task_card(draw, "Todos", inbox, 104, icon=list_icon, empty="No tasks due")
-        task_card(draw, "Work Tasks", work, 265, icon=briefcase_icon, empty="No active tasks")
+        # None hides the Work card. An empty sequence still shows its empty state.
+        task_card(draw, "Todos", inbox, 104, 418 if work is None else 257,
+                  icon=list_icon, empty="No tasks due")
+        if work is not None:
+            task_card(draw, "Work Tasks", work, 265, 418,
+                      icon=briefcase_icon, empty="No active tasks")
         habits_strip(draw, habits)
 
     # Map the composited grayscale image to the OG's four native levels,

@@ -9,7 +9,7 @@ from ticktick import TickTick, TickTickError
 
 class TickTickTests(unittest.TestCase):
     def setUp(self):
-        self.now = datetime(2026, 11, 18, tzinfo=timezone.utc)
+        self.now = datetime(2026, 11, 18, 8, tzinfo=timezone.utc)
         self.client = TickTick("synthetic-token")
 
     def test_read_only_dashboard_contract(self):
@@ -33,14 +33,14 @@ class TickTickTests(unittest.TestCase):
             {"habitId": "b", "checkins": [{"stamp": 20261118, "value": 5}]},
         ]
         blocks = {"project": {"id": "blocks"}, "tasks": [
-            dict(title="Planning", status=0, startDate="2026-11-18T01:00:00Z",
-                 dueDate="2026-11-18T02:00:00Z"),
+            dict(title="Planning", status=0, startDate="2026-11-18T09:00:00Z",
+                 dueDate="2026-11-18T10:00:00Z"),
         ]}
         with patch.object(self.client, "read",
                           side_effect=[[task], work, blocks, habits, checkins]) as read:
             self.assertEqual(self.client.dashboard("inbox", "work", "blocks", self.now),
                              ([TaskRow("Inbox task")], [TaskRow("Work task")], ["Partial goal"],
-                              None, TimeBlock("Planning", "1:00am - 2:00am")))
+                              None, TimeBlock("Planning", "9:00am - 10:00am")))
         read.assert_any_call("/project/blocks/data")
         read.assert_any_call("/task/filter", {"projectIds": ["inbox"], "status": [0]})
         read.assert_any_call("/habit/checkins?habitIds=a%2Cb%2Cc&from=20261118&to=20261119")

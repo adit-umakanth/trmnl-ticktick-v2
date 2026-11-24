@@ -1,6 +1,8 @@
 # TickTick dashboard for TRMNL OG
 
-A single-device BYOS server for the TRMNL OG. It uses the TickTick Open API, draws an 800×480 four-gray dashboard with a split time block header, stacked task cards, and a Daily Habits strip, and serves snapshots on a home-IP-restricted HTTPS endpoint.
+A single-device BYOS server for the TRMNL OG. It uses the TickTick Open API, draws an 800×480 four-gray dashboard with a split time block header, task cards, and a Daily Habits strip, and serves snapshots on a home-IP-restricted HTTPS endpoint.
+
+Work Tasks appears on refresh from 8:00 a.m. up to 5:00 p.m., Monday to Friday, in the configured dashboard time zone. After hours and on weekends, Todos fills the space.
 
 The renderer uses antialiased Source Sans 3 with native grayscale levels 0, 85, 170, and 255 in a 2-bit grayscale PNG. The OG requires firmware 1.6.0 or newer for this format. Source Sans 3 is bundled under the [SIL Open Font License](app/fonts/OFL.txt). [TRMNL image format guide](https://docs.trmnl.com/go/diy/imagemagick-guide)
 
@@ -12,6 +14,7 @@ Use Python 3.12. The preview and unit tests use synthetic fixtures and need neit
 python3.12 -m venv .venv
 .venv/bin/python -m pip install -r app/requirements.txt
 PYTHONPATH=app .venv/bin/python scripts/preview.py preview.png
+PYTHONPATH=app .venv/bin/python scripts/preview.py preview-after-hours.png --after-hours
 PYTHONPATH=app .venv/bin/python scripts/preview.py preview-outage.png --outage
 PYTHONPATH=app .venv/bin/python -m unittest discover -s tests -v
 sam validate --lint --region us-east-1
@@ -61,7 +64,8 @@ open "$preview_dir"
 
 Use the saved preview for these checks against the signed-in TickTick app.
 
-- Check that Inbox shows tasks due today or earlier and that Work shows open, top-level tasks from `Active` across all due dates, including undated tasks. Both cards use manual order. A 200-row Inbox response is treated as potentially truncated.
+- Check that Inbox shows tasks due today or earlier in manual order. A 200-row Inbox response is treated as potentially truncated.
+- During weekday work hours, check that Work shows open, top-level tasks from `Active` in manual order across all due dates, including undated tasks. After hours, check that Todos fills the available task space.
 - Verify Current and Upcoming Block against the Time Blocking list. An eligible block is an open timed task with a start and end (TickTick’s due date). Times use the dashboard time zone, and the next block can be on a later day.
 - Check the first three eligible habits in section order, then habit order within each section. Confirm that completed and skipped habits are hidden, partial check-ins below the goal stay eligible, and unused slots stay blank. The dashboard uses its configured time zone to determine today's check-ins.
 

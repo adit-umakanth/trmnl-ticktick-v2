@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 from byos import byos, lambda_handler
 from dashboard import TaskRow, TimeBlock, render
 from snapshots import Snapshots
-from ticktick import TickTickError
+from ticktick import TickTick, TickTickError
 
 CONFIG = {
     "DASHBOARD_TIMEZONE": "Etc/UTC",
@@ -135,6 +135,44 @@ class ByosTests(unittest.TestCase):
         self.assertEqual(decoded, render([TaskRow("Test task")],
                                          current=TimeBlock("Test block", "4:00pm - 5:30pm")))
         self.assertEqual(self.feed.calls, 3)
+
+    def test_display_switches_work_layout_in_dashboard_time_zone(self):
+        settings = CONFIG | {"DASHBOARD_TIMEZONE": "America/Chicago"}
+        work_task = dict(title="Work task", sortOrder=0, status=0, columnId="active")
+        responses = {
+            "/task/filter": [],
+            "/project/work/data": {
+                "project": {"id": "work"},
+                "columns": [{"id": "active", "name": "Active"}],
+                "tasks": [work_task],
+            },
+            "/project/blocks/data": {"project": {"id": "blocks"}, "tasks": []},
+            "/habit": [],
+        }
+        cases = (
+            ("2026-11-20T13:59:59Z", False),  # Friday just before 8 a.m. CST
+            ("2026-11-20T14:00:00Z", True),
+            ("2026-11-20T22:59:59Z", True),
+            ("2026-11-20T23:00:00Z", False),  # Friday at 5 p.m. CST
+            ("2026-11-21T16:00:00Z", False),  # Saturday
+            ("2026-11-22T16:00:00Z", False),  # Sunday
+            ("2026-11-23T14:00:00Z", True),   # Monday at 8 a.m. CST
+            ("2026-07-10T13:00:00Z", True),   # Friday at 8 a.m. CDT
+            ("2026-07-10T22:00:00Z", False),  # Friday at 5 p.m. CDT
+        )
+        for instant, show_work in cases:
+            with self.subTest(instant=instant), patch.object(
+                TickTick, "read", side_effect=lambda path, query=None: responses[path]
+            ) as read:
+                result = byos(self.event("/api/display"), settings, self.credentials, self.storage,
+                              lambda: datetime.fromisoformat(instant))
+                display = json.loads(result["body"])
+                image = self.request("/images/{image}", image=display["filename"] + ".png")
+                expected_work = [TaskRow("Work task")] if show_work else None
+                self.assertEqual(base64.b64decode(image["body"]), render(work=expected_work))
+                paths = [call.args[0] for call in read.call_args_list]
+                self.assertEqual("/project/work/data" in paths, show_work)
+                self.assertEqual(display["refresh_rate"], 900)
 
     def test_outage_and_recovery(self):
         for reason in ("timeout", "http_503"):
