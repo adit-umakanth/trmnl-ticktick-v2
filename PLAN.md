@@ -8,7 +8,7 @@
 
 Commit each milestone after its checks pass. Fixture-backed results and authenticated results are recorded separately.
 
-## Roadmap feature 1 — Work Tasks
+## Work Tasks from `Active`
 
 - [x] Resolve the Work list's `Active` section from the project data response and select open, top-level tasks by section ID and parent ID.
 - [x] Build one row per eligible Work task in manual order, independent of due date. Show “No active tasks” when there are no eligible rows.
