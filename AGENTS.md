@@ -1,8 +1,8 @@
 # Engineering instructions
 
 - Follow [PRD.md](PRD.md) and [PLAN.md](PLAN.md). Keep the fixture-based workflow runnable at each milestone and commit verified milestones separately.
-- Read [ROADMAP.md](ROADMAP.md) when planning feature work. Use its priority order when proposing what to work on next. When a feature is selected for implementation, document its requirements and acceptance criteria in PRD.md and its implementation steps in PLAN.md.
-- Remove completed features from [ROADMAP.md](ROADMAP.md) and keep the remaining entries in priority order. Record feature verification and any pending checks in [PLAN.md](PLAN.md).
+- Use [GitHub Issues](https://github.com/adit-umakanth/trmnl-ticktick-v2/issues) as the feature backlog. Use the priorities recorded on open issues when proposing what to work on next. When a feature is selected, read its issue and relevant comments, then document its requirements and acceptance criteria in [PRD.md](PRD.md) and its implementation steps in [PLAN.md](PLAN.md). Include the issue link so the requirements and plan can be traced back to the discussion.
+- Record feature verification and any pending checks in [PLAN.md](PLAN.md). Close the issue when its acceptance criteria are met.
 - Use the official TickTick API for read-only integration. Treat live behavior as unverified until compared against the account and app. Keep fixtures synthetic or scrubbed.
 - Keep network, rendering, and AWS integration independently testable. Run relevant tests and report skipped or blocked verification.
 - Keep credentials and personal TickTick content out of Git, URLs, logs, and checked-in fixtures.
