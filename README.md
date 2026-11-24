@@ -11,8 +11,8 @@ Use Python 3.12. The preview and unit tests use synthetic fixtures and need neit
 ```sh
 python3.12 -m venv .venv
 .venv/bin/python -m pip install -r app/requirements.txt
-.venv/bin/python app/preview.py preview.png
-.venv/bin/python app/preview.py preview-outage.png --outage
+PYTHONPATH=app .venv/bin/python scripts/preview.py preview.png
+PYTHONPATH=app .venv/bin/python scripts/preview.py preview-outage.png --outage
 PYTHONPATH=app .venv/bin/python -m unittest discover -s tests -v
 sam validate --lint --region us-east-1
 sam build
@@ -33,29 +33,13 @@ TICKTICK_TIME_BLOCKING_LIST_ID=
 DASHBOARD_TIMEZONE=
 ```
 
-The probe, live test, and deployment helper read this file automatically. Shell environment variables override individual saved values. The probe also accepts positional project IDs and `--timezone` overrides. Git ignores `.env`. Store the token in Keychain as described below.
+The live test and deployment helper read this file automatically. Shell environment variables override individual saved values. Git ignores `.env`. Store the token in Keychain as described below.
 
 ### Store the local token in macOS Keychain
 
-Open **Keychain Access** using Spotlight. Select the **login** keychain and choose **File → New Password Item** (⌘N). Enter `trmnl-ticktick` as the **Keychain Item Name**, `ticktick` as the **Account Name**, and paste the token into **Password**. If macOS asks whether `security` may access the item while running the probe or live test, choose **Allow**. [Apple Keychain Access guide](https://support.apple.com/guide/keychain-access/welcome/mac)
+Open **Keychain Access** using Spotlight. Select the **login** keychain and choose **File → New Password Item** (⌘N). Enter `trmnl-ticktick` as the **Keychain Item Name**, `ticktick` as the **Account Name**, and paste the token into **Password**. If macOS asks whether `security` may access the item while running the live test, choose **Allow**. [Apple Keychain Access guide](https://support.apple.com/guide/keychain-access/welcome/mac)
 
-Both local tools use the Keychain item automatically. They honor `TICKTICK_TOKEN` first when it is supplied by your shell or a CI secret store. The probe also has a hidden interactive prompt for one-off use.
-
-### Run the probe and compare with the app
-
-Run this in your private terminal. Omit `--show-titles` to print counts only.
-
-```sh
-.venv/bin/python app/probe.py --show-titles
-```
-
-Compare Inbox and Work against TickTick in manual order. Inbox includes tasks due today or earlier. Work includes open, top-level tasks in the section named `Active`, including overdue, due-today, future-dated, and undated tasks. Check that tasks in other sections, unsectioned tasks, subtasks, and checklist entries are absent from Work.
-
-Verify the Current Block and Upcoming Block against the Time Blocking list. An eligible block is an open timed task with a start and end (TickTick’s due date). Times use the dashboard time zone. The next block can be on a later day. A 200-row Inbox response is treated as potentially truncated.
-
-Compare the first three eligible habits against today's view, checking section order and the habit order within each section. The dashboard requests check-ins from today through tomorrow's exclusive boundary in the dashboard time zone. If examples are available, confirm that completed and skipped habits are hidden and that partial check-ins below the goal stay eligible. Check that unused slots in the rendered Daily Habits strip stay blank.
-
-Confirm all-day date behavior and any custom recurrence or grouping you use. Record outcomes without account content. If required behavior cannot be verified, pause before changing workflows or enabling the deployment.
+The live test uses `TICKTICK_TOKEN` when supplied by your shell or a CI secret store. Otherwise, on macOS it reads the Keychain item automatically.
 
 ### Run the live integration test
 
@@ -75,9 +59,17 @@ TICKTICK_LIVE=1 TICKTICK_PREVIEW_DIR="$preview_dir" PYTHONPATH=app \
 open "$preview_dir"
 ```
 
-**Work Tasks verification** — Synthetic tests passed for section membership, due-date coverage, manual order, and parent-task filtering. The official API returned one `Active` section for the configured Work list, and the owner confirmed the live dashboard preview. Physical OG verification remains pending.
+Use the saved preview for these checks against the signed-in TickTick app.
 
-Detailed comparison of built-in Inbox behavior, habit ordering, and archive and check-in semantics with the signed-in app remains pending.
+- Check that Inbox shows tasks due today or earlier and that Work shows open, top-level tasks from `Active` across all due dates, including undated tasks. Both cards use manual order. A 200-row Inbox response is treated as potentially truncated.
+- Verify Current and Upcoming Block against the Time Blocking list. An eligible block is an open timed task with a start and end (TickTick’s due date). Times use the dashboard time zone, and the next block can be on a later day.
+- Check the first three eligible habits in section order, then habit order within each section. Confirm that completed and skipped habits are hidden, partial check-ins below the goal stay eligible, and unused slots stay blank. The dashboard uses its configured time zone to determine today's check-ins.
+
+Confirm all-day date behavior and any custom recurrence or grouping you use. Record outcomes without account content.
+
+Synthetic Work Tasks tests passed for section membership, due-date coverage, manual order, and parent-task filtering. The official API returned one `Active` section for the configured Work list. The owner confirmed Work Tasks and normal dashboard behavior in the live preview and on the physical OG.
+
+The owner confirmed built-in Inbox behavior, Current and Upcoming Block timing, habit ordering, and archive and check-in behavior against the signed-in TickTick app, including the applicable date, recurrence, and grouping checks. Live outage rendering and recovery remain pending.
 
 ## AWS deployment after explicit approval
 
@@ -110,8 +102,8 @@ Time Blocking adds one TickTick project read per display request. At 15-minute r
 
 ### Acceptance and operations
 
-- From the home network, call `GET /api/setup`, `GET /api/display`, and `POST /api/log` without device headers and expect HTTP 200. Fetch `/images/setup.png` and the display image URL without device headers and confirm both return an 800×480 PNG. Verify setup and normal refresh on the physical OG, including retrieval on repeated wakes.
-- During a window with no device traffic, request the setup image from cellular or another off-network connection. Expect HTTP 403. In CloudWatch, confirm the test did not increment Lambda invocations or produce a Lambda request log. Repeat against `/api/setup`, `/api/display`, and `/api/log`. Account for metrics publication delay.
-- With approval, use a temporarily invalid TickTick token in the existing SecureString. Verify the OG shows the outage screen, restore the valid token, and verify recovery on the next wake. The function reads the parameter on each display request.
+- **Verified.** From the home network, call `GET /api/setup`, `GET /api/display`, and `POST /api/log` without device headers and expect HTTP 200. Fetch `/images/setup.png` and the display image URL without device headers and confirm both return an 800×480 PNG. Verify setup and normal refresh on the physical OG, including retrieval on repeated wakes.
+- **Verified.** During a window with no device traffic, request the setup image from cellular or another off-network connection. Expect HTTP 403. In CloudWatch, confirm the test did not increment Lambda invocations or produce a Lambda request log. Repeat against `/api/setup`, `/api/display`, and `/api/log`. Account for metrics publication delay.
+- **Pending.** With approval, use a temporarily invalid TickTick token in the existing SecureString. Verify that the live display endpoint returns the outage image and the OG shows it. Restore the valid token, verify that the live endpoint returns the normal dashboard, and verify recovery on the next OG wake. The function reads the parameter on each display request.
 - To update the IP allowlist, rerun the deployment helper with the new `HomeCidr` and the existing values for the other parameters, then repeat the network checks. For application rollback, check out the last known-good revision in a separate checkout, run `sam build`, and run a guided deploy against the existing stack using its current configuration. If that revision predates the helper, use `sam deploy --guided`.
 - Logs expire after 14 days. Image snapshots expire after three days. On approved teardown, `sam delete --region us-east-1 --stack-name trmnl-ticktick` deletes the stack and retains the private snapshot bucket. The bucket and the separately created SecureString can be deleted independently after approval.

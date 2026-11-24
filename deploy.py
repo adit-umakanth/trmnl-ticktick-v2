@@ -4,7 +4,7 @@ import argparse
 from pathlib import Path
 from subprocess import run
 
-from app.local_projects import dashboard_timezone, project_ids
+from scripts.local_projects import dashboard_timezone, project_ids
 
 
 def main():

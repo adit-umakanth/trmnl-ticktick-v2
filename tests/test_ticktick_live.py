@@ -8,7 +8,7 @@ from PIL import Image
 
 from dashboard import render
 from local_credentials import local_ticktick_token
-from local_projects import dashboard_timezone, project_ids
+from scripts.local_projects import dashboard_timezone, project_ids
 from ticktick import TickTick, TickTickError
 
 

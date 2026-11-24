@@ -15,4 +15,11 @@ Commit each milestone after its checks pass. Fixture-backed results and authenti
 - [x] Verify with fixtures. All 28 offline tests passed, and the dashboard and outage previews rendered as 800×480, 2-bit grayscale PNGs.
 - [x] Verify the live preview. The authenticated API check found one `Active` section in the configured Work list, the live render passed its PNG checks, and the owner confirmed the preview worked as intended.
 
-Deployment and the physical OG check remain separate milestones.
+- [x] Verify Work Tasks from `Active` on the physical OG. The owner confirmed the behavior on the device.
+
+## Live and physical OG verification
+
+- [x] Confirm the live preview against the signed-in TickTick app. The owner verified built-in Inbox behavior, Work Tasks, Current and Upcoming Blocks, habit ordering, and archive and check-in behavior, including the applicable date, recurrence, and grouping checks.
+- [x] Verify access from the allowed home network and rejection from an off-network connection before Lambda invocation. The owner confirmed both checks.
+- [x] Verify BYOS setup, normal dashboard rendering, and image retrieval on repeated wakes on the physical OG. The owner confirmed normal behavior on the device.
+- [ ] Verify outage rendering and recovery with a controlled TickTick authentication failure in the live integration and on the physical OG.

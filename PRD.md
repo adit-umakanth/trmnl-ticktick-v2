@@ -25,4 +25,4 @@
 - BYOS tests cover provisioning and requests with absent or arbitrary device headers, refresh timing, repeat filenames, and retrieval of an earlier snapshot after a newer publication.
 - Live verification covers official TickTick reads, allowed and denied source networks, the display on physical hardware, and recovery from a controlled TickTick failure.
 
-Roadmap feature 1 met its acceptance criteria through synthetic Work project tests, an authenticated TickTick render, and owner confirmation of the live preview. Physical OG verification remains pending.
+The owner confirmed normal dashboard behavior in the live preview and on the physical OG, including Work Tasks from `Active`, BYOS setup, rendering, and repeated refreshes. The allowed and denied source-network checks also passed. Live outage rendering and recovery from a controlled TickTick failure remain pending.

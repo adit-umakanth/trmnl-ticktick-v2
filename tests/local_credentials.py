@@ -1,4 +1,4 @@
-"""Load the TickTick token for local tools."""
+"""Load the TickTick token for the opt-in live test."""
 
 from os import environ
 from subprocess import run

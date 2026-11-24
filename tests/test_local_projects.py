@@ -3,7 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-import local_projects
+from scripts import local_projects
 
 
 class LocalProjectsTests(unittest.TestCase):
